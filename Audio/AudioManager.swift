@@ -1,184 +1,83 @@
 import Foundation
 import AVFoundation
-import SwiftUI
-import Combine
+import Combine // CRITICAL: Fixes protocol and init errors
 
-struct SoundOption: Identifiable, Hashable, Codable {
-    var id = UUID()
+struct SoundOption: Identifiable, Equatable {
+    let id = UUID()
     let name: String
-    let filename: String
+    let fileName: String
+    let customURL: URL?
 }
 
 class AudioManager: ObservableObject {
-    @Published var isPlaying = false
+    @Published var ambienceOptions: [SoundOption] = [
+        SoundOption(name: "Ambient 1", fileName: "Ambient1", customURL: nil),
+        SoundOption(name: "Ambient 2", fileName: "Ambient2", customURL: nil)
+    ]
+    @Published var chimeOptions: [SoundOption] = [
+        SoundOption(name: "Bowl 1", fileName: "Chime1", customURL: nil)
+    ]
     
     @Published var currentAmbience: SoundOption
     @Published var currentChime: SoundOption
     
-    @Published var ambienceOptions: [SoundOption]
-    @Published var chimeOptions: [SoundOption]
-    
-    private var backgroundPlayer: AVAudioPlayer?
+    private var ambiencePlayer: AVAudioPlayer?
     private var chimePlayer: AVAudioPlayer?
-    
+
     init() {
-        // 1. SETUP SESSION
-        do {
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
-            try AVAudioSession.sharedInstance().setActive(true)
-        } catch { print("Session Error: \(error)") }
-        
-        // 2. LOAD LISTS (Fixes 'self' error by loading into local vars first)
-        var loadedAmbience = [
-            SoundOption(name: "Ambient 1", filename: "ambient"),
-            SoundOption(name: "Ambient 2", filename: "ambient2")
-        ]
-        if let data = UserDefaults.standard.data(forKey: "savedAmbienceList"),
-           let decoded = try? JSONDecoder().decode([SoundOption].self, from: data) {
-            loadedAmbience = decoded
-        }
-        
-        var loadedChime = [
-            SoundOption(name: "Chime 1", filename: "chime"),
-            SoundOption(name: "Chime 2", filename: "chime2")
-        ]
-        if let data = UserDefaults.standard.data(forKey: "savedChimeList"),
-           let decoded = try? JSONDecoder().decode([SoundOption].self, from: data) {
-            loadedChime = decoded
-        }
-        
-        // 3. LOAD SELECTIONS
-        var selectedAmbience = loadedAmbience.first!
-        if let data = UserDefaults.standard.data(forKey: "lastAmbience"),
-           let saved = try? JSONDecoder().decode(SoundOption.self, from: data),
-           loadedAmbience.contains(where: { $0.filename == saved.filename }) {
-            selectedAmbience = saved
-        }
-        
-        var selectedChime = loadedChime.first!
-        if let data = UserDefaults.standard.data(forKey: "lastChime"),
-           let saved = try? JSONDecoder().decode(SoundOption.self, from: data),
-           loadedChime.contains(where: { $0.filename == saved.filename }) {
-            selectedChime = saved
-        }
-        
-        // 4. ASSIGN TO SELF
-        self.ambienceOptions = loadedAmbience
-        self.chimeOptions = loadedChime
-        self.currentAmbience = selectedAmbience
-        self.currentChime = selectedChime
-        
-        // 5. PRIME PLAYERS
-        loadAmbience(selectedAmbience.filename)
-        loadChime(selectedChime.filename)
+        let defaultAmbient = SoundOption(name: "Ambient 1", fileName: "Ambient1", customURL: nil)
+        let defaultChime = SoundOption(name: "Bowl 1", fileName: "Chime1", customURL: nil)
+        self.currentAmbience = defaultAmbient
+        self.currentChime = defaultChime
     }
-    
-    // --- ACTIONS ---
-    
-    func addCustomSound(name: String, url: URL, isChime: Bool) {
-        let filename = url.lastPathComponent
-        let newOption = SoundOption(name: name, filename: filename)
-        
-        if isChime {
-            chimeOptions.append(newOption)
-            saveLists()
-            selectChime(newOption)
-        } else {
-            ambienceOptions.append(newOption)
-            saveLists()
-            selectAmbience(newOption)
-        }
-    }
-    
-    func saveLists() {
-        if let encoded = try? JSONEncoder().encode(ambienceOptions) {
-            UserDefaults.standard.set(encoded, forKey: "savedAmbienceList")
-        }
-        if let encoded = try? JSONEncoder().encode(chimeOptions) {
-            UserDefaults.standard.set(encoded, forKey: "savedChimeList")
-        }
-    }
-    
+
     func selectAmbience(_ option: SoundOption) {
         currentAmbience = option
-        loadAmbience(option.filename)
-        if let encoded = try? JSONEncoder().encode(option) {
-            UserDefaults.standard.set(encoded, forKey: "lastAmbience")
-        }
+        if ambiencePlayer?.isPlaying == true { startAmbience() }
     }
-    
+
+    // FIX: Restored selection method
     func selectChime(_ option: SoundOption) {
         currentChime = option
-        loadChime(option.filename)
-        if let encoded = try? JSONEncoder().encode(option) {
-            UserDefaults.standard.set(encoded, forKey: "lastChime")
-        }
     }
-    
-    private func loadAmbience(_ filename: String) {
-        let wasPlaying = isPlaying
-        if isPlaying { backgroundPlayer?.stop() }
-        
-        if let url = getURL(for: filename) {
-            do {
-                backgroundPlayer = try AVAudioPlayer(contentsOf: url)
-                backgroundPlayer?.numberOfLoops = -1
-                backgroundPlayer?.prepareToPlay()
-                backgroundPlayer?.volume = 1.0
-            } catch { print("Err BG: \(error)") }
-        }
-        
-        if wasPlaying { backgroundPlayer?.play() }
-    }
-    
-    private func loadChime(_ filename: String) {
-        if let url = getURL(for: filename) {
-            do {
-                chimePlayer = try AVAudioPlayer(contentsOf: url)
-                chimePlayer?.numberOfLoops = 0
-                chimePlayer?.prepareToPlay()
-            } catch { print("Err Chime: \(error)") }
-        }
-    }
-    
+
     func startAmbience() {
-        backgroundPlayer?.currentTime = 0
-        backgroundPlayer?.volume = 1.0
-        backgroundPlayer?.play()
-        isPlaying = true
-    }
-    
-    func stopAmbience() {
-        if let bg = backgroundPlayer, bg.isPlaying {
-            bg.stop()
+        ambiencePlayer?.stop()
+        let url: URL
+        if let cURL = currentAmbience.customURL { url = cURL }
+        else {
+            guard let bURL = Bundle.main.url(forResource: currentAmbience.fileName, withExtension: "mp3") else { return }
+            url = bURL
         }
-        if let chime = chimePlayer, chime.isPlaying {
-            chime.setVolume(0, fadeDuration: 2.5)
-            Timer.scheduledTimer(withTimeInterval: 2.6, repeats: false) { _ in
-                chime.stop()
-                chime.volume = 1.0
-            }
-        }
-        isPlaying = false
+        
+        do {
+            ambiencePlayer = try AVAudioPlayer(contentsOf: url)
+            ambiencePlayer?.numberOfLoops = -1
+            ambiencePlayer?.play()
+        } catch { print("Playback Error: \(error)") }
     }
-    
+
+    func stopAmbience() { ambiencePlayer?.stop() }
+
     func triggerChime() {
-        if let chime = chimePlayer {
-            if chime.isPlaying { chime.stop(); chime.currentTime = 0 }
-            chime.volume = 1.0
-            chime.play()
+        let url: URL
+        if let cURL = currentChime.customURL { url = cURL }
+        else {
+            guard let bURL = Bundle.main.url(forResource: currentChime.fileName, withExtension: "mp3") else { return }
+            url = bURL
         }
+        try? chimePlayer = AVAudioPlayer(contentsOf: url)
+        chimePlayer?.play()
     }
-    
-    func getURL(for filename: String) -> URL? {
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let docURL = docs.appendingPathComponent(filename)
-        if FileManager.default.fileExists(atPath: docURL.path) {
-            return docURL
+
+    func addCustomSound(name: String, url: URL, isChime: Bool) {
+        let newOption = SoundOption(name: name, fileName: "", customURL: url)
+        if isChime {
+            chimeOptions.append(newOption)
+            currentChime = newOption
+        } else {
+            ambienceOptions.append(newOption)
+            currentAmbience = newOption
         }
-        if let url = Bundle.main.url(forResource: filename, withExtension: "mp3") { return url }
-        if let url = Bundle.main.url(forResource: filename, withExtension: "m4a") { return url }
-        if let url = Bundle.main.url(forResource: filename, withExtension: nil) { return url }
-        return nil
     }
 }

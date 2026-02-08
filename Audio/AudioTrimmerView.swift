@@ -1,175 +1,143 @@
 import SwiftUI
 import AVFoundation
-import CoreMedia // <--- Added this so CMTime works
 
 struct AudioTrimmerView: View {
     let fileURL: URL
-    let isChime: Bool // We will default this to false for field notes
+    let isChime: Bool
     var onSave: (String, URL) -> Void
     
     @Environment(\.dismiss) var dismiss
-    
     @State private var soundName = ""
     @State private var duration: Double = 0
     @State private var startTrim: Double = 0
     @State private var endTrim: Double = 0
     @State private var isPlaying = false
     @State private var isExporting = false
-    
     @State private var player: AVAudioPlayer?
-    @State private var previewTimer: Timer?
+    
+    let mainFont = "CourierNewPS-BoldMT"
+    let bodyFont = "CourierNewPSMT"
     
     var body: some View {
-        VStack(spacing: 30) {
-            Text("Edit Field Note")
-                .font(.system(size: 24, weight: .bold, design: .monospaced))
-                .padding(.top)
-                .foregroundStyle(.white)
+        ZStack {
+            // LAYER 0: Force Background (Prevents White Box)
+            Color.black.ignoresSafeArea()
             
-            TextField("Note Name", text: $soundName)
-                .textFieldStyle(.roundedBorder)
-                .font(.system(.body, design: .monospaced))
-                .padding()
-            
-            if duration > 0 {
-                VStack(spacing: 30) {
-                    VStack(alignment: .leading) {
-                        HStack { Text("Start").foregroundStyle(.white); Spacer(); Text(formatTime(startTrim)).foregroundStyle(.white) }
-                            .font(.caption).monospaced()
-                        Slider(value: $startTrim, in: 0...duration, step: 0.1)
-                            .tint(.green)
-                            .onChange(of: startTrim) { oldValue, newValue in
-                                if newValue >= endTrim { startTrim = endTrim - 0.5 }
+            VStack(spacing: 25) {
+                // HEADER (Always visible)
+                Text("PROCESS_FIELD_NOTE")
+                    .font(.custom(mainFont, size: 18))
+                    .foregroundColor(.white)
+                    .padding(.top, 40)
+
+                // CONTENT
+                if duration > 0 {
+                    VStack(spacing: 25) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("IDENTIFIER").font(.custom(bodyFont, size: 10)).foregroundColor(.gray)
+                            TextField("", text: $soundName)
+                                .padding(12)
+                                .background(Color.white.opacity(0.1))
+                                .border(Color.white, width: 1)
+                                .foregroundColor(.white)
+                                .autocorrectionDisabled()
+                        }
+                        .padding(.horizontal)
+
+                        VStack(spacing: 30) {
+                            trimControl(label: "START", value: $startTrim)
+                            trimControl(label: "END", value: $endTrim)
+                        }
+                        .padding(.horizontal)
+
+                        VStack(spacing: 15) {
+                            Button(action: togglePreview) {
+                                Text(isPlaying ? "[ STOP ]" : "[ PREVIEW ]")
+                                    .font(.custom(mainFont, size: 14))
+                                    .foregroundColor(isPlaying ? .red : .white)
+                                    .padding()
+                                    .frame(maxWidth: .infinity)
+                                    .border(isPlaying ? Color.red : Color.white, width: 1)
                             }
-                    }
-                    
-                    VStack(alignment: .leading) {
-                        HStack { Text("End").foregroundStyle(.white); Spacer(); Text(formatTime(endTrim)).foregroundStyle(.white) }
-                            .font(.caption).monospaced()
-                        Slider(value: $endTrim, in: 0...duration, step: 0.1)
-                            .tint(.red)
-                            .onChange(of: endTrim) { oldValue, newValue in
-                                if newValue <= startTrim { endTrim = startTrim + 0.5 }
+
+                            Button(action: exportAndSave) {
+                                Text(isExporting ? "WRITING..." : "SAVE_TO_LIBRARY")
+                                    .font(.custom(mainFont, size: 16))
+                                    .foregroundColor(.black)
+                                    .padding()
+                                    .frame(maxWidth: .infinity)
+                                    .background(soundName.isEmpty || isExporting ? Color.gray : Color.white)
                             }
+                            .disabled(soundName.isEmpty || isExporting)
+                        }
+                        .padding(.horizontal)
                     }
-                }
-                .padding()
-            } else {
-                Text("Loading Audio...")
-                    .font(.caption).foregroundStyle(.gray)
-            }
-            
-            Button(action: togglePreview) {
-                HStack {
-                    Image(systemName: isPlaying ? "stop.fill" : "play.fill")
-                    Text(isPlaying ? "STOP" : "PREVIEW")
-                        .font(.system(size: 14, weight: .bold, design: .monospaced))
-                }
-                .foregroundStyle(isPlaying ? .red : .green)
-            }
-            
-            Spacer()
-            
-            Button(action: {
-                // Call export logic
-                exportAndSave()
-            }) {
-                if isExporting {
-                    ProgressView()
                 } else {
-                    Text("SAVE NOTE")
-                        .font(.system(size: 18, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.black)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.white)
-                        .cornerRadius(8)
+                    // LOADING STATE (Inside the black container)
+                    VStack(spacing: 20) {
+                        ProgressView().tint(.white)
+                        Text("OPENING_FILE_STREAM...")
+                            .font(.custom(bodyFont, size: 12))
+                            .foregroundColor(.gray)
+                    }
+                    .frame(maxHeight: .infinity)
                 }
+                Spacer()
             }
-            .disabled(soundName.isEmpty || isExporting)
-            .opacity(soundName.isEmpty ? 0.5 : 1.0)
-            .padding()
         }
-        .background(Color.black.ignoresSafeArea())
+        .preferredColorScheme(.dark)
         .onAppear(perform: loadFile)
-        .onDisappear { stopPlayback() }
     }
-    
-    func loadFile() {
-        do {
-            player = try AVAudioPlayer(contentsOf: fileURL)
-            player?.prepareToPlay()
-            duration = player?.duration ?? 0
-            endTrim = duration
-            // Default name based on date
-            let formatter = DateFormatter()
-            formatter.dateFormat = "MMM-dd-HHmm"
-            soundName = "Note-" + formatter.string(from: Date())
-        } catch { print("Error: \(error)") }
+
+    @ViewBuilder
+    private func trimControl(label: String, value: Binding<Double>) -> some View {
+        VStack(alignment: .leading) {
+            HStack {
+                Text(label); Spacer(); Text(String(format: "%.2f", value.wrappedValue))
+            }.font(.custom(bodyFont, size: 10)).foregroundColor(.gray)
+            Slider(value: value, in: 0...duration).tint(.white)
+        }
     }
-    
-    func stopPlayback() {
-        player?.stop()
-        previewTimer?.invalidate()
-        isPlaying = false
-    }
-    
-    func togglePreview() {
-        if isPlaying {
-            stopPlayback()
-        } else {
-            guard let p = player else { return }
-            p.currentTime = startTrim
-            p.play()
-            isPlaying = true
-            
-            // Stop automatically when we hit the trim end
-            let playDuration = endTrim - startTrim
-            previewTimer?.invalidate()
-            previewTimer = Timer.scheduledTimer(withTimeInterval: playDuration, repeats: false) { _ in
-                self.stopPlayback()
-            }
+
+    private func loadFile() {
+        // Small delay to allow the file system to "close" the file from recording
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            do {
+                player = try AVAudioPlayer(contentsOf: fileURL)
+                player?.prepareToPlay()
+                duration = player?.duration ?? 0
+                endTrim = duration
+                if soundName.isEmpty {
+                    soundName = "FIELD_" + String(Int(Date().timeIntervalSince1970))
+                }
+            } catch { print("FILE_LOAD_ERR: \(error)") }
         }
     }
     
+    private func togglePreview() {
+        if isPlaying { player?.stop(); isPlaying = false }
+        else {
+            player?.currentTime = startTrim; player?.play(); isPlaying = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + max(0.1, endTrim - startTrim)) {
+                self.player?.stop(); self.isPlaying = false
+            }
+        }
+    }
+
     func exportAndSave() {
         isExporting = true
-        stopPlayback()
-        
         let asset = AVURLAsset(url: fileURL)
-        let start = CMTime(seconds: startTrim, preferredTimescale: 44100)
-        let duration = CMTime(seconds: endTrim - startTrim, preferredTimescale: 44100)
-        let timeRange = CMTimeRange(start: start, duration: duration)
-        
         guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else { return }
-        
-        let fileName = soundName.replacingOccurrences(of: " ", with: "_") + ".m4a"
-        // Save to final location
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let outputURL = docs.appendingPathComponent(fileName)
-        
+        let outputURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("\(soundName).m4a")
         try? FileManager.default.removeItem(at: outputURL)
-        
         exportSession.outputURL = outputURL
         exportSession.outputFileType = .m4a
-        exportSession.timeRange = timeRange
-        
+        exportSession.timeRange = CMTimeRange(start: CMTime(seconds: startTrim, preferredTimescale: 600), duration: CMTime(seconds: endTrim - startTrim, preferredTimescale: 600))
         exportSession.exportAsynchronously {
             DispatchQueue.main.async {
-                self.isExporting = false
-                if exportSession.status == .completed {
-                    self.onSave(self.soundName, outputURL)
-                    self.dismiss()
-                } else {
-                    print("Export failed: \(String(describing: exportSession.error))")
-                }
+                if exportSession.status == .completed { onSave(soundName, outputURL) }
+                dismiss()
             }
         }
-    }
-    
-    func formatTime(_ t: Double) -> String {
-        let m = Int(t) / 60
-        let s = Int(t) % 60
-        return String(format: "%02d:%02d", m, s)
     }
 }
