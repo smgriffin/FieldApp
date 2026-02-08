@@ -1,22 +1,21 @@
-//
-//  DocumentPicker.swift
-//  Field
-//
-//  Created by Sean Griffin on 2/7/26.
-//
-
+// Core/DocumentPicker.swift
 
 import SwiftUI
 import UniformTypeIdentifiers
 
+// Core/DocumentPicker.swift
+
 struct DocumentPicker: UIViewControllerRepresentable {
+    var allowedTypes: [UTType] // Ensure this property exists
     var onPick: (URL) -> Void
 
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
-        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.audio], asCopy: true)
+        // Pass the allowedTypes array here
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: allowedTypes, asCopy: true)
         picker.delegate = context.coordinator
         return picker
     }
+
 
     func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
 
@@ -33,7 +32,11 @@ struct DocumentPicker: UIViewControllerRepresentable {
 
         func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
             guard let url = urls.first else { return }
-            parent.onPick(url)
+            
+            // Security scoping ensures the app can read the file immediately
+            if url.startAccessingSecurityScopedResource() {
+                parent.onPick(url)
+            }
         }
     }
 }

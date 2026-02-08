@@ -1,14 +1,13 @@
 import Foundation
 import AVFoundation
 import SwiftUI
-import Combine //
+import Combine
 
 class RecorderManager: NSObject, ObservableObject, AVAudioRecorderDelegate {
     @Published var isRecording = false
     @Published var audioLevel: Float = -160.0
-    @Published var elapsedTime: TimeInterval = 0
+    @Published var recordingDuration: TimeInterval = 0 // RENAMED from elapsedTime
     
-    // RESTORED: AppStorage binding for quality selection
     @AppStorage("globalAudioQuality") var quality: AudioQuality = .highQuality
     
     private var audioRecorder: AVAudioRecorder?
@@ -16,13 +15,16 @@ class RecorderManager: NSObject, ObservableObject, AVAudioRecorderDelegate {
     private var startTime: Date?
 
     func startRecording() {
+        AppFileSystem.shared.setup() // Ensure RAW directory exists
+        
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothHFP])
             try session.setActive(true)
             
-            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            let url = docs.appendingPathComponent("FIELD_NOTE_\(Int(Date().timeIntervalSince1970)).\(quality.fileExtension)")
+            // SAVE TO RAW FOLDER
+            let filename = "REC_\(Int(Date().timeIntervalSince1970)).\(quality.fileExtension)"
+            let url = AppFileSystem.shared.rawDir.appendingPathComponent(filename)
             
             let settings: [String: Any] = [
                 AVFormatIDKey: Int(quality.formatID),
@@ -46,8 +48,11 @@ class RecorderManager: NSObject, ObservableObject, AVAudioRecorderDelegate {
 
     func stopRecording() {
         audioRecorder?.stop()
+        audioRecorder = nil // Releases file handle for the trimmer
         statusTimer?.cancel()
         isRecording = false
+        
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
     }
 
     private func startStatusPolling() {
@@ -56,7 +61,9 @@ class RecorderManager: NSObject, ObservableObject, AVAudioRecorderDelegate {
             recorder.updateMeters()
             DispatchQueue.main.async {
                 self.audioLevel = recorder.averagePower(forChannel: 0)
-                if let start = self.startTime { self.elapsedTime = Date().timeIntervalSince(start) }
+                if let start = self.startTime {
+                    self.recordingDuration = Date().timeIntervalSince(start)
+                }
             }
         }
     }

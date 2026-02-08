@@ -1,11 +1,3 @@
-//
-//  TimerState.swift
-//  Field
-//
-//  Created by sg on 2/7/26.
-//
-
-
 import Foundation
 import SwiftUI
 

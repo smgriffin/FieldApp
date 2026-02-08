@@ -1,11 +1,3 @@
-//
-//  TimerView.swift
-//  Field
-//
-//  Created by sg on 2/7/26.
-//
-
-
 import SwiftUI
 
 struct TimerView: View {

@@ -30,8 +30,8 @@ struct RecorderView: View {
 
                 Spacer()
 
-                // Timer - NOW OBSERVING THE MANAGER
-                Text(formatTime(recorderManager.elapsedTime))
+                // FIXED: Changed .elapsedTime to .recordingDuration
+                Text(formatTime(recorderManager.recordingDuration))
                     .font(.custom(mainFont, size: 72))
                     .monospacedDigit()
                     .foregroundColor(.white)
