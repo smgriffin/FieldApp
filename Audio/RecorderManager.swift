@@ -202,9 +202,9 @@ class RecorderManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     // MARK: - Fixed 20 Hz high-pass (always active per spec)
 
     private func setup20HzHP(sampleRate: Float) {
-        let rc = 1.0 / (2.0 * .pi * 20.0)
-        let dt = 1.0 / sampleRate
-        let a  = rc / (rc + dt)
+        let rc: Float = 1.0 / (2.0 * Float.pi * 20.0)
+        let dt: Float = 1.0 / sampleRate
+        let a:  Float = rc / (rc + dt)
         hp20B0 = a; hp20B1 = -a; hp20A1 = -a
     }
 
@@ -218,9 +218,9 @@ class RecorderManager: NSObject, ObservableObject, CLLocationManagerDelegate {
 
     private func updateHighPassCoefficients(sampleRate: Float) {
         setup20HzHP(sampleRate: sampleRate)
-        let rc = 1.0 / (2.0 * .pi * Float(lowCutFrequency.rawValue))
-        let dt = 1.0 / sampleRate
-        let a  = rc / (rc + dt)
+        let rc: Float = 1.0 / (2.0 * Float.pi * Float(lowCutFrequency.rawValue))
+        let dt: Float = 1.0 / sampleRate
+        let a:  Float = rc / (rc + dt)
         hpB0 = a; hpB1 = -a; hpA1 = -a
     }
 

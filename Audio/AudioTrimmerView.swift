@@ -155,37 +155,52 @@ struct AudioTrimmerView: View {
     func exportAndSave() {
         stopPlayback()
         isExporting = true
-        
+
         let asset = AVURLAsset(url: fileURL)
-        
-        // In Lossless mode, use Passthrough to maintain the original fidelity of the WAV/CAF
         let preset = (quality == .highQuality) ? AVAssetExportPresetPassthrough : AVAssetExportPresetAppleM4A
         let outputFileType: AVFileType = (quality == .highQuality) ? .caf : .m4a
-        
-        guard let exportSession = AVAssetExportSession(asset: asset, presetName: preset) else {
+
+        guard let session = AVAssetExportSession(asset: asset, presetName: preset) else {
             isExporting = false
             return
         }
-        
+
         let targetDir = isChime ? AppFileSystem.shared.chimeDir : AppFileSystem.shared.ambientDir
         let outputURL = targetDir.appendingPathComponent("\(soundName).\(quality.fileExtension)")
-        
         try? FileManager.default.removeItem(at: outputURL)
-        
-        exportSession.outputURL = outputURL
-        exportSession.outputFileType = outputFileType
-        exportSession.timeRange = CMTimeRange(
+
+        session.outputURL = outputURL
+        session.outputFileType = outputFileType
+        session.timeRange = CMTimeRange(
             start: CMTime(seconds: startTrim, preferredTimescale: 600),
             duration: CMTime(seconds: endTrim - startTrim, preferredTimescale: 600)
         )
-        
-        exportSession.exportAsynchronously {
-            DispatchQueue.main.async {
-                if exportSession.status == .completed {
-                    onSave(soundName, outputURL)
-                }
+
+        Task {
+            let succeeded = await runExport(session: session, outputURL: outputURL)
+            await MainActor.run {
+                if succeeded { onSave(soundName, outputURL) }
                 isExporting = false
                 dismiss()
+            }
+        }
+    }
+
+    private func runExport(session: AVAssetExportSession, outputURL: URL) async -> Bool {
+        if #available(iOS 18, *) {
+            for await state in session.states(updateInterval: 0.1) {
+                switch state {
+                case .completed:           return true
+                case .failed, .cancelled:  return false
+                default:                   continue
+                }
+            }
+            return false
+        } else {
+            return await withCheckedContinuation { cont in
+                session.exportAsynchronously {
+                    cont.resume(returning: session.status == .completed)
+                }
             }
         }
     }
