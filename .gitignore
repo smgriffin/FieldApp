@@ -1,0 +1,16 @@
+# Large ambient audio assets — manage outside git (use LFS or store separately)
+Sounds/ambient*.mp3
+
+# Xcode
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+DerivedData/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# macOS
+.DS_Store

@@ -6,14 +6,58 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		4C8FEF452F382448006BF451 /* AudioKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4C8FEF442F382448006BF451 /* AudioKit */; };
+		4C8FEF582F3828EB006BF451 /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C8FEF572F3826C1006BF451 /* Session.swift */; };
+		4C8FEF592F382A69006BF451 /* AudioManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C8FEF532F382598006BF451 /* AudioManager.swift */; };
+		4C8FEF5B2F382E4B006BF451 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C8FEF5A2F382E04006BF451 /* HomeView.swift */; };
+		4C8FEF6A2F38362D006BF451 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C8FEF692F383601006BF451 /* StatsView.swift */; };
+		4C8FEF6C2F383800006BF451 /* DocumentPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C8FEF6B2F383800006BF451 /* DocumentPicker.swift */; };
+		4C8FEF6E2F38380B006BF451 /* AudioTrimmerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C8FEF6D2F38380B006BF451 /* AudioTrimmerView.swift */; };
+		4C8FEF762F38F8CB006BF451 /* RecorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C8FEF752F38F8CB006BF451 /* RecorderView.swift */; };
+		4C8FEF7A2F38FA24006BF451 /* AudioQuality.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C8FEF792F38FA24006BF451 /* AudioQuality.swift */; };
+		4C8FEF7C2F38FA2B006BF451 /* RecorderManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C8FEF7B2F38FA2B006BF451 /* RecorderManager.swift */; };
+		4C8FEF8C2F39510E006BF451 /* AppFileSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C8FEF8B2F39510E006BF451 /* AppFileSystem.swift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		4C8FEF332F382389006BF451 /* Field.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Field.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C8FEF532F382598006BF451 /* AudioManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioManager.swift; sourceTree = "<group>"; };
+		4C8FEF552F38260A006BF451 /* TimerState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerState.swift; sourceTree = "<group>"; };
+		4C8FEF562F382647006BF451 /* TimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerView.swift; sourceTree = "<group>"; };
+		4C8FEF572F3826C1006BF451 /* Session.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Session.swift; sourceTree = "<group>"; };
+		4C8FEF5A2F382E04006BF451 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		4C8FEF692F383601006BF451 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
+		4C8FEF6B2F383800006BF451 /* DocumentPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPicker.swift; sourceTree = "<group>"; };
+		4C8FEF6D2F38380B006BF451 /* AudioTrimmerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioTrimmerView.swift; sourceTree = "<group>"; };
+		4C8FEF752F38F8CB006BF451 /* RecorderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecorderView.swift; sourceTree = "<group>"; };
+		4C8FEF792F38FA24006BF451 /* AudioQuality.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioQuality.swift; sourceTree = "<group>"; };
+		4C8FEF7B2F38FA2B006BF451 /* RecorderManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecorderManager.swift; sourceTree = "<group>"; };
+		4C8FEF8B2F39510E006BF451 /* AppFileSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFileSystem.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		4C8FEF742F3850F0006BF451 /* Exceptions for "Field" folder in "Field" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 4C8FEF322F382389006BF451 /* Field */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		4C8FEF352F382389006BF451 /* Field */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				4C8FEF742F3850F0006BF451 /* Exceptions for "Field" folder in "Field" target */,
+			);
 			path = Field;
+			sourceTree = "<group>";
+		};
+		4C8FEF4E2F38253C006BF451 /* Sounds */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Sounds;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -23,6 +67,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4C8FEF452F382448006BF451 /* AudioKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -32,6 +77,10 @@
 		4C8FEF2A2F382389006BF451 = {
 			isa = PBXGroup;
 			children = (
+				4C8FEF4E2F38253C006BF451 /* Sounds */,
+				4C8FEF482F38248A006BF451 /* UI */,
+				4C8FEF472F382484006BF451 /* Audio */,
+				4C8FEF462F38247D006BF451 /* Core */,
 				4C8FEF352F382389006BF451 /* Field */,
 				4C8FEF342F382389006BF451 /* Products */,
 			);
@@ -43,6 +92,55 @@
 				4C8FEF332F382389006BF451 /* Field.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		4C8FEF462F38247D006BF451 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				4C8FEF8B2F39510E006BF451 /* AppFileSystem.swift */,
+				4C8FEF6B2F383800006BF451 /* DocumentPicker.swift */,
+				4C8FEF572F3826C1006BF451 /* Session.swift */,
+				4C8FEF552F38260A006BF451 /* TimerState.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		4C8FEF472F382484006BF451 /* Audio */ = {
+			isa = PBXGroup;
+			children = (
+				4C8FEF7B2F38FA2B006BF451 /* RecorderManager.swift */,
+				4C8FEF792F38FA24006BF451 /* AudioQuality.swift */,
+				4C8FEF6D2F38380B006BF451 /* AudioTrimmerView.swift */,
+				4C8FEF532F382598006BF451 /* AudioManager.swift */,
+			);
+			path = Audio;
+			sourceTree = "<group>";
+		};
+		4C8FEF482F38248A006BF451 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				4C8FEF4A2F38249B006BF451 /* Screens */,
+				4C8FEF492F382493006BF451 /* Components */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		4C8FEF492F382493006BF451 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				4C8FEF5A2F382E04006BF451 /* HomeView.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		4C8FEF4A2F38249B006BF451 /* Screens */ = {
+			isa = PBXGroup;
+			children = (
+				4C8FEF752F38F8CB006BF451 /* RecorderView.swift */,
+				4C8FEF692F383601006BF451 /* StatsView.swift */,
+				4C8FEF562F382647006BF451 /* TimerView.swift */,
+			);
+			path = Screens;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -62,9 +160,11 @@
 			);
 			fileSystemSynchronizedGroups = (
 				4C8FEF352F382389006BF451 /* Field */,
+				4C8FEF4E2F38253C006BF451 /* Sounds */,
 			);
 			name = Field;
 			packageProductDependencies = (
+				4C8FEF442F382448006BF451 /* AudioKit */,
 			);
 			productName = Field;
 			productReference = 4C8FEF332F382389006BF451 /* Field.app */;
@@ -94,6 +194,9 @@
 			);
 			mainGroup = 4C8FEF2A2F382389006BF451;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				4C8FEF432F382448006BF451 /* XCRemoteSwiftPackageReference "AudioKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 4C8FEF342F382389006BF451 /* Products */;
 			projectDirPath = "";
@@ -119,6 +222,16 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4C8FEF7C2F38FA2B006BF451 /* RecorderManager.swift in Sources */,
+				4C8FEF6A2F38362D006BF451 /* StatsView.swift in Sources */,
+				4C8FEF6E2F38380B006BF451 /* AudioTrimmerView.swift in Sources */,
+				4C8FEF592F382A69006BF451 /* AudioManager.swift in Sources */,
+				4C8FEF7A2F38FA24006BF451 /* AudioQuality.swift in Sources */,
+				4C8FEF5B2F382E4B006BF451 /* HomeView.swift in Sources */,
+				4C8FEF6C2F383800006BF451 /* DocumentPicker.swift in Sources */,
+				4C8FEF762F38F8CB006BF451 /* RecorderView.swift in Sources */,
+				4C8FEF582F3828EB006BF451 /* Session.swift in Sources */,
+				4C8FEF8C2F39510E006BF451 /* AppFileSystem.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -251,8 +364,13 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = FUPD9N973P;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Field/Info.plist;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "We need your mic to make field recordings.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Field App needs access to your photos to set custom backgrounds";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -282,8 +400,13 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = FUPD9N973P;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Field/Info.plist;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "We need your mic to make field recordings.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Field App needs access to your photos to set custom backgrounds";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -328,6 +451,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		4C8FEF432F382448006BF451 /* XCRemoteSwiftPackageReference "AudioKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/AudioKit/AudioKit.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.6.5;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		4C8FEF442F382448006BF451 /* AudioKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4C8FEF432F382448006BF451 /* XCRemoteSwiftPackageReference "AudioKit" */;
+			productName = AudioKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 4C8FEF2B2F382389006BF451 /* Project object */;
 }

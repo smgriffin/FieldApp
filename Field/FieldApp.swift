@@ -1,18 +1,12 @@
-//
-//  FieldApp.swift
-//  Field
-//
-//  Created by Sean Griffin on 2/7/26.
-//
-
 import SwiftUI
 import SwiftData
 
 @main
 struct FieldApp: App {
+    // Database Setup
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            Session.self, // Ensure "Session.swift" exists and is correct
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -25,7 +19,8 @@ struct FieldApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            // CRITICAL CHANGE: We are loading HomeView instead of ContentView
+            HomeView()
         }
         .modelContainer(sharedModelContainer)
     }
