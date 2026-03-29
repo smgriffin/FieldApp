@@ -34,8 +34,10 @@ struct RecorderView: View {
                 Spacer()
 
                 Text(formatTime(recorderManager.recordingDuration))
-                    .font(.custom(mainFont, size: 72))
+                    .font(.custom(mainFont, size: 58))
                     .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
                     .foregroundColor(.white)
 
                 // Level Bar

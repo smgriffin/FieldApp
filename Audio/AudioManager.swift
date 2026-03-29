@@ -19,94 +19,109 @@ class AudioManager: ObservableObject {
 
     @AppStorage("globalAudioQuality") var quality: AudioQuality = .highQuality
 
-    // MARK: - Crossfade Engine
-    private let engine = AVAudioEngine()
-    private let playerA = AVAudioPlayerNode()
-    private let playerB = AVAudioPlayerNode()
-    private var activeBuffer: AVAudioPCMBuffer?
-    private var crossfadeDuration: Double = 2.5  // seconds
+    // MARK: - Engine (lazy — not created until first use, keeps startup fast)
+    private lazy var engine  = AVAudioEngine()
+    private lazy var playerA = AVAudioPlayerNode()
+    private lazy var playerB = AVAudioPlayerNode()
+    private var engineSetup  = false
+
+    // Streaming file references — must stay alive while engine reads them
+    private var fileA: AVAudioFile?
+    private var fileB: AVAudioFile?
+    private var activeURL: URL?
+    private var activeFileDuration: Double = 0
+
+    private let crossfadeDuration: Double = 2.5
     private var isAmbiencePlaying = false
     private var crossfadeTimer: Timer?
 
-    // Chime uses a simple player — single-shot, no looping needed
     private var chimePlayer: AVAudioPlayer?
     private var cancellables = Set<AnyCancellable>()
 
+    // Guard against reloading library when quality hasn't changed
+    private var lastLoadedQuality: AudioQuality?
+
     init() {
         let defaultAmbient = SoundOption(name: "Ambient 1", fileName: "ambient", customURL: nil)
-        let defaultChime = SoundOption(name: "Bowl 1", fileName: "chime", customURL: nil)
-
+        let defaultChime   = SoundOption(name: "Bowl 1",    fileName: "chime",   customURL: nil)
         self.currentAmbience = defaultAmbient
-        self.currentChime = defaultChime
+        self.currentChime    = defaultChime
 
-        setupEngine()
+        // Engine setup deferred to first use — don't touch Core Audio at init time
         loadUserLibrary()
 
+        // Debounced — and guarded by equality check inside loadUserLibrary
         NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+            .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
             .sink { [weak self] _ in self?.loadUserLibrary() }
             .store(in: &cancellables)
     }
 
     // MARK: - Engine Setup
 
-    private func setupEngine() {
+    private func setupEngineIfNeeded() {
+        guard !engineSetup else { return }
         engine.attach(playerA)
         engine.attach(playerB)
-
-        // Both players connect to the main mixer
         engine.connect(playerA, to: engine.mainMixerNode, format: nil)
         engine.connect(playerB, to: engine.mainMixerNode, format: nil)
-
         playerA.volume = 0
         playerB.volume = 0
+        engineSetup = true
     }
 
-    private func startEngine() {
+    private func startEngineIfNeeded() {
+        setupEngineIfNeeded()
         guard !engine.isRunning else { return }
-        let session = AVAudioSession.sharedInstance()
         do {
+            let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
             try session.setActive(true)
             try engine.start()
         } catch {
-            print("ENGINE_START_ERR: \(error)")
+            print("ENGINE_ERR: \(error)")
+        }
+    }
+
+    /// Call from onAppear so the engine is warm before the user taps play.
+    func prewarm() {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            self?.startEngineIfNeeded()
         }
     }
 
     // MARK: - User Library
 
     func loadUserLibrary() {
+        guard quality != lastLoadedQuality else { return }
+        lastLoadedQuality = quality
+
         let fs = AppFileSystem.shared
         fs.setup()
-
-        let isLosslessMode = (quality == .highQuality)
-        let targetExt = quality.fileExtension
+        let isLossless = quality == .highQuality
+        let ext = quality.fileExtension
 
         if let files = try? FileManager.default.contentsOfDirectory(at: fs.ambientDir, includingPropertiesForKeys: nil) {
-            let userSounds = files
-                .filter { $0.pathExtension == targetExt }
+            let user = files
+                .filter { $0.pathExtension == ext }
                 .map { SoundOption(name: $0.deletingPathExtension().lastPathComponent, fileName: "", customURL: $0) }
-
             DispatchQueue.main.async {
-                let presets = !isLosslessMode ? [
-                    SoundOption(name: "Ambient 1", fileName: "ambient", customURL: nil),
+                self.ambienceOptions = (!isLossless ? [
+                    SoundOption(name: "Ambient 1", fileName: "ambient",  customURL: nil),
                     SoundOption(name: "Ambient 2", fileName: "ambient2", customURL: nil)
-                ] : []
-                self.ambienceOptions = presets + userSounds
+                ] : []) + user
             }
         }
 
         if let files = try? FileManager.default.contentsOfDirectory(at: fs.chimeDir, includingPropertiesForKeys: nil) {
-            let userChimes = files
-                .filter { $0.pathExtension == targetExt }
+            let user = files
+                .filter { $0.pathExtension == ext }
                 .map { SoundOption(name: $0.deletingPathExtension().lastPathComponent, fileName: "", customURL: $0) }
-
             DispatchQueue.main.async {
-                let presets = !isLosslessMode ? [
-                    SoundOption(name: "Bowl 1", fileName: "chime", customURL: nil),
+                self.chimeOptions = (!isLossless ? [
+                    SoundOption(name: "Bowl 1", fileName: "chime",  customURL: nil),
                     SoundOption(name: "Bowl 2", fileName: "chime2", customURL: nil)
-                ] : []
-                self.chimeOptions = presets + userChimes
+                ] : []) + user
             }
         }
     }
@@ -122,27 +137,38 @@ class AudioManager: ObservableObject {
         currentChime = option
     }
 
-    // MARK: - Ambience Playback (Crossfade Loop)
+    // MARK: - Ambience Playback (Streaming Crossfade)
 
     func startAmbience() {
-        stopAmbience()
+        // Cancel any in-flight crossfade and stop players cleanly
+        crossfadeTimer?.invalidate()
+        crossfadeTimer = nil
+        playerA.stop(); fileA = nil
+        playerB.stop(); fileB = nil
 
-        guard let url = resolveURL(for: currentAmbience, ext: "mp3"),
-              let buffer = loadBuffer(from: url) else { return }
+        guard let url = resolveURL(for: currentAmbience) else { return }
 
-        // Restart engine if it was stopped by a session interruption
-        if engine.isRunning {
-            engine.stop()
-        }
-        startEngine()
-        activeBuffer = buffer
+        // Read duration without loading any frames into RAM
+        guard let probe = try? AVAudioFile(forReading: url) else { return }
+        let duration = Double(probe.length) / probe.processingFormat.sampleRate
+        guard duration > 0 else { return }
+
+        activeURL = url
+        activeFileDuration = duration
         isAmbiencePlaying = true
 
-        // Kick off the first play on node A
-        scheduleAndPlay(node: playerA, buffer: buffer, fadeIn: true)
+        startEngineIfNeeded()
 
-        // Schedule the crossfade swap before the buffer ends
-        scheduleCrossfade(bufferDuration: buffer.duration)
+        // Open a fresh instance — probe's read cursor is at position 0 but reusing
+        // the same object across scheduleFile calls is unreliable
+        guard let fa = try? AVAudioFile(forReading: url) else { return }
+        fileA = fa
+        playerA.scheduleFile(fa, at: nil)
+        playerA.play()
+        playerA.volume = 0
+        fadeTo(node: playerA, target: 1.0, duration: min(crossfadeDuration, duration * 0.3))
+
+        scheduleCrossfade(fileDuration: duration)
     }
 
     func stopAmbience() {
@@ -150,64 +176,67 @@ class AudioManager: ObservableObject {
         crossfadeTimer = nil
         isAmbiencePlaying = false
 
-        fadeOut(node: playerA, duration: 0.5) { self.playerA.stop() }
-        fadeOut(node: playerB, duration: 0.5) { self.playerB.stop() }
+        fadeTo(node: playerA, target: 0, duration: 0.5) {
+            self.playerA.stop(); self.fileA = nil
+        }
+        fadeTo(node: playerB, target: 0, duration: 0.5) {
+            self.playerB.stop(); self.fileB = nil
+        }
     }
 
-    /// Temporarily mute for recording; call resumeAmbience() after.
     func pauseAmbienceForRecording() {
         crossfadeTimer?.invalidate()
         crossfadeTimer = nil
-        playerA.stop()
-        playerB.stop()
-        // Keep isAmbiencePlaying = true so resume knows to restart
+        playerA.stop(); fileA = nil
+        playerB.stop(); fileB = nil
+        // isAmbiencePlaying stays true so resumeAmbienceAfterRecording knows to restart
     }
 
     func resumeAmbienceAfterRecording() {
         guard isAmbiencePlaying else { return }
+        // Force engine restart to adopt the restored .playback audio session
+        if engine.isRunning { engine.stop() }
         startAmbience()
     }
 
-    private func scheduleAndPlay(node: AVAudioPlayerNode, buffer: AVAudioPCMBuffer, fadeIn: Bool) {
-        node.stop()
-        node.scheduleBuffer(buffer, at: nil, options: [], completionHandler: nil)
-        node.play()
-        if fadeIn {
-            node.volume = 0
-            fadeIn(node: node, duration: crossfadeDuration)
-        } else {
-            node.volume = 1.0
-        }
-    }
-
-    private func scheduleCrossfade(bufferDuration: Double) {
-        // Fire crossfade trigger this many seconds before buffer ends
-        let triggerAt = max(bufferDuration - crossfadeDuration, 0.1)
+    private func scheduleCrossfade(fileDuration: Double) {
+        // Clamp crossfade to at most 40% of file duration so ordering is always safe
+        let effective = min(crossfadeDuration, fileDuration * 0.4)
+        let triggerAt = max(fileDuration - effective, 0.1)
 
         crossfadeTimer = Timer.scheduledTimer(withTimeInterval: triggerAt, repeats: false) { [weak self] _ in
-            guard let self = self, self.isAmbiencePlaying, let buffer = self.activeBuffer else { return }
+            guard let self = self, self.isAmbiencePlaying, let url = self.activeURL else { return }
 
-            // Determine which node is currently the "live" one
-            let outNode = self.playerA.volume > self.playerB.volume ? self.playerA : self.playerB
-            let inNode  = outNode === self.playerA ? self.playerB : self.playerA
+            let outIsA  = self.playerA.volume >= self.playerB.volume
+            let outNode = outIsA ? self.playerA : self.playerB
+            let inNode  = outIsA ? self.playerB : self.playerA
 
-            // Fade out the outgoing node
-            self.fadeOut(node: outNode, duration: self.crossfadeDuration) {
-                outNode.stop()
+            // Open file for incoming node BEFORE touching the outgoing node
+            let newFile = try? AVAudioFile(forReading: url)
+            if outIsA { self.fileB = newFile } else { self.fileA = newFile }
+
+            if let nf = newFile {
+                inNode.stop()
+                inNode.scheduleFile(nf, at: nil)
+                inNode.play()
+                inNode.volume = 0
+                self.fadeTo(node: inNode, target: 1.0, duration: effective)
             }
 
-            // Schedule and fade in the incoming node from the top of the buffer
-            self.scheduleAndPlay(node: inNode, buffer: buffer, fadeIn: true)
+            // Fade out; release file reference only after the player has fully stopped
+            self.fadeTo(node: outNode, target: 0, duration: effective) {
+                outNode.stop()
+                if outIsA { self.fileA = nil } else { self.fileB = nil }
+            }
 
-            // Queue up the next crossfade
-            self.scheduleCrossfade(bufferDuration: buffer.duration)
+            self.scheduleCrossfade(fileDuration: self.activeFileDuration)
         }
     }
 
     // MARK: - Chime
 
     func triggerChime() {
-        guard let url = resolveURL(for: currentChime, ext: "mp3") else { return }
+        guard let url = resolveURL(for: currentChime) else { return }
         do {
             chimePlayer = try AVAudioPlayer(contentsOf: url)
             chimePlayer?.play()
@@ -219,71 +248,44 @@ class AudioManager: ObservableObject {
     // MARK: - Library Management
 
     func addCustomSound(name: String, url: URL, isChime: Bool) {
-        let newOption = SoundOption(name: name, fileName: "", customURL: url)
+        let opt = SoundOption(name: name, fileName: "", customURL: url)
         if isChime {
-            chimeOptions.append(newOption)
-            currentChime = newOption
+            chimeOptions.append(opt)
+            currentChime = opt
         } else {
-            ambienceOptions.append(newOption)
-            currentAmbience = newOption
+            ambienceOptions.append(opt)
+            currentAmbience = opt
         }
     }
 
     // MARK: - Helpers
 
-    private func resolveURL(for option: SoundOption, ext: String) -> URL? {
-        if let customURL = option.customURL { return customURL }
-        return Bundle.main.url(forResource: option.fileName, withExtension: ext)
-    }
-
-    private func loadBuffer(from url: URL) -> AVAudioPCMBuffer? {
-        do {
-            let file = try AVAudioFile(forReading: url)
-            let format = file.processingFormat
-            let frameCount = AVAudioFrameCount(file.length)
-            guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else { return nil }
-            try file.read(into: buffer)
-            return buffer
-        } catch {
-            print("BUFFER_LOAD_ERR: \(error)")
-            return nil
+    private func resolveURL(for option: SoundOption) -> URL? {
+        if let custom = option.customURL { return custom }
+        // Try common bundle formats in preference order — lets test files be .m4a or .mp3
+        for ext in ["m4a", "mp3", "caf", "aiff", "wav"] {
+            if let url = Bundle.main.url(forResource: option.fileName, withExtension: ext) {
+                return url
+            }
         }
+        return nil
     }
 
-    private func fadeIn(node: AVAudioPlayerNode, duration: Double) {
-        let steps = 30
+    /// Unified fade — single method avoids the Bool parameter/method name collision.
+    private func fadeTo(node: AVAudioPlayerNode, target: Float, duration: Double, completion: (() -> Void)? = nil) {
+        let start = node.volume
+        let delta = target - start
+        let steps = max(1, Int(duration * 30))
         let interval = duration / Double(steps)
         var step = 0
         Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { t in
             step += 1
-            node.volume = Float(step) / Float(steps)
+            node.volume = start + delta * (Float(step) / Float(steps))
             if step >= steps {
-                node.volume = 1.0
+                node.volume = target
                 t.invalidate()
+                completion?()
             }
         }
-    }
-
-    private func fadeOut(node: AVAudioPlayerNode, duration: Double, completion: @escaping () -> Void) {
-        let startVol = node.volume
-        let steps = 30
-        let interval = duration / Double(steps)
-        var step = 0
-        Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { t in
-            step += 1
-            node.volume = startVol * (1.0 - Float(step) / Float(steps))
-            if step >= steps {
-                node.volume = 0
-                t.invalidate()
-                completion()
-            }
-        }
-    }
-}
-
-// MARK: - AVAudioPCMBuffer convenience
-private extension AVAudioPCMBuffer {
-    var duration: Double {
-        Double(frameLength) / format.sampleRate
     }
 }

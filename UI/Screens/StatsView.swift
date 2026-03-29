@@ -25,6 +25,22 @@ struct StatsView: View {
         }.reversed()
     }
 
+    // Precomputed in one O(n) pass — avoids O(35 × n) repeated filtering
+    var intensityMap: [Date: Double] {
+        let calendar = Calendar.current
+        var totals: [Date: TimeInterval] = [:]
+        for session in sessions {
+            let day = calendar.startOfDay(for: session.date)
+            totals[day, default: 0] += session.duration
+        }
+        return totals.mapValues { seconds in
+            if seconds == 0   { return 0.0 }
+            if seconds < 300  { return 0.3 }
+            if seconds < 1200 { return 0.6 }
+            return 1.0
+        }
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -70,8 +86,9 @@ struct StatsView: View {
                                     .monospaced()
                                 
                                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 6) {
+                                    let map = intensityMap
                                     ForEach(heatMapDates, id: \.self) { date in
-                                        HeatMapCell(date: date, intensity: intensity(for: date))
+                                        HeatMapCell(date: date, intensity: map[date] ?? 0)
                                     }
                                 }
                             }
@@ -141,17 +158,6 @@ struct StatsView: View {
         for session in sessions {
             modelContext.delete(session)
         }
-    }
-    
-    func intensity(for date: Date) -> Double {
-        let calendar = Calendar.current
-        let daysSessions = sessions.filter { calendar.isDate($0.date, inSameDayAs: date) }
-        let totalSeconds = daysSessions.reduce(0) { $0 + $1.duration }
-        
-        if totalSeconds == 0 { return 0 }
-        if totalSeconds < 300 { return 0.3 }
-        if totalSeconds < 1200 { return 0.6 }
-        return 1.0
     }
     
     func formatDuration(_ seconds: TimeInterval) -> String {

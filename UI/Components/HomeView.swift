@@ -65,8 +65,7 @@ struct HomeView: View {
                 Spacer()
                 soundControlsSection
             }
-            // Forces the UI container to match the screen width
-            .frame(width: UIScreen.main.bounds.width)
+                .frame(maxWidth: .infinity)
         }
         .onChange(of: photoSelection) { _, newValue in
             Task {
@@ -98,7 +97,15 @@ struct HomeView: View {
             }
         }
         .onAppear {
-            loadSavedBackground()
+            // Pre-warm the audio engine in the background so first play is instant
+            audioManager.prewarm()
+            // Load background image off the main thread
+            Task.detached(priority: .utility) {
+                if let data = try? Data(contentsOf: getBackgroundURL()),
+                   let img = UIImage(data: data) {
+                    await MainActor.run { backgroundImage = img }
+                }
+            }
             recorderManager.onRecordingWillStart = {
                 audioManager.pauseAmbienceForRecording()
             }
@@ -189,6 +196,7 @@ extension HomeView {
                     durationButton(minutes: 10)
                     durationButton(minutes: 20)
                     durationButton(minutes: 30)
+                    infinityButton
                 }
             }
         }
@@ -298,6 +306,15 @@ extension HomeView {
         isRunning = false
     }
     
+    var infinityButton: some View {
+        let selected = targetDuration == 0
+        return Button(action: { setDuration(0) }) {
+            Text("∞")
+                .font(.custom(selected ? mainFont : bodyFont, size: 22))
+                .foregroundStyle(selected ? .white : .white.opacity(0.5))
+        }
+    }
+
     func durationButton(minutes: Int) -> some View {
         let d = Double(minutes * 60)
         return Button(action: { setDuration(d) }) {
@@ -318,12 +335,6 @@ extension HomeView {
     
     func saveBackground(_ data: Data) {
         try? data.write(to: getBackgroundURL())
-    }
-    
-    func loadSavedBackground() {
-        if let data = try? Data(contentsOf: getBackgroundURL()) {
-            backgroundImage = UIImage(data: data)
-        }
     }
     
     func deleteBackground() {
